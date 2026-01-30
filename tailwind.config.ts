@@ -57,6 +57,24 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        urgent: {
+          DEFAULT: "hsl(var(--urgent))",
+          foreground: "hsl(var(--urgent-foreground))",
+          bg: "hsl(var(--urgent-bg))",
+        },
+        later: {
+          DEFAULT: "hsl(var(--later))",
+          foreground: "hsl(var(--later-foreground))",
+          bg: "hsl(var(--later-bg))",
+        },
+        done: {
+          DEFAULT: "hsl(var(--done))",
+          foreground: "hsl(var(--done-foreground))",
+          bg: "hsl(var(--done-bg))",
+        },
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         lg: "var(--radius)",
