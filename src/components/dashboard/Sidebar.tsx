@@ -4,26 +4,28 @@ import {
   Users, 
   Settings, 
   LogOut,
-  FolderKanban
+  FolderKanban,
+  User
 } from 'lucide-react';
-import { User } from '@/types/task';
+import { User as UserType } from '@/types/task';
 
 interface SidebarProps {
-  currentUser: User;
+  currentUser: UserType;
   onLogout?: () => void;
+  onProfileClick?: () => void;
 }
 
-const Sidebar = ({ currentUser, onLogout }: SidebarProps) => {
+const Sidebar = ({ currentUser, onLogout, onProfileClick }: SidebarProps) => {
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', active: true },
-    { icon: CheckSquare, label: 'Công việc', count: 10 },
+    { icon: CheckSquare, label: 'Công việc' },
     { icon: FolderKanban, label: 'Dự án' },
     { icon: Users, label: 'Thành viên' },
     { icon: Settings, label: 'Cài đặt' },
   ];
 
   return (
-    <aside className="w-64 h-screen bg-sidebar flex flex-col border-r border-sidebar-border">
+    <aside className="w-64 h-screen bg-sidebar flex flex-col border-r border-sidebar-border sticky top-0">
       {/* Logo */}
       <div className="p-6">
         <h1 className="text-xl font-bold text-sidebar-primary flex items-center gap-2">
@@ -44,11 +46,6 @@ const Sidebar = ({ currentUser, onLogout }: SidebarProps) => {
             >
               <item.icon className="w-5 h-5" />
               <span className="flex-1 text-left">{item.label}</span>
-              {item.count && (
-                <span className="px-2 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
-                  {item.count}
-                </span>
-              )}
             </button>
           ))}
         </div>
@@ -56,13 +53,22 @@ const Sidebar = ({ currentUser, onLogout }: SidebarProps) => {
 
       {/* User Profile */}
       <div className="p-4 border-t border-sidebar-border">
-        <div className="flex items-center gap-3 mb-3">
-          <img
-            src={currentUser.avatar}
-            alt={currentUser.name}
-            className="w-10 h-10 rounded-full bg-muted"
-          />
-          <div className="flex-1 min-w-0">
+        <button 
+          onClick={onProfileClick}
+          className="flex items-center gap-3 mb-3 w-full hover:bg-sidebar-accent rounded-lg p-2 transition-colors"
+        >
+          {currentUser.avatar ? (
+            <img
+              src={currentUser.avatar}
+              alt={currentUser.name}
+              className="w-10 h-10 rounded-full bg-muted object-cover"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+              <User className="w-5 h-5 text-primary-foreground" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0 text-left">
             <p className="text-sm font-medium text-sidebar-primary truncate">
               {currentUser.name}
             </p>
@@ -70,7 +76,7 @@ const Sidebar = ({ currentUser, onLogout }: SidebarProps) => {
               {currentUser.role === 'admin' ? 'Quản trị viên' : 'Thành viên'}
             </p>
           </div>
-        </div>
+        </button>
         <button
           onClick={onLogout}
           className="sidebar-nav-item w-full text-destructive hover:bg-destructive/10"

@@ -1,34 +1,51 @@
-import { useState, useMemo, useCallback } from 'react';
-import { Task, Priority, User } from '@/types/task';
-import { mockTasks, mockUsers } from '@/data/mockData';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Task, Priority } from '@/types/task';
+import { useAuth } from '@/hooks/useAuth';
+import { useTasks } from '@/hooks/useTasks';
 import Sidebar from '@/components/dashboard/Sidebar';
 import ProgressHeader from '@/components/dashboard/ProgressHeader';
 import SearchBar from '@/components/dashboard/SearchBar';
 import DraggableTaskGrid from '@/components/dashboard/DraggableTaskGrid';
 import TaskModal from '@/components/dashboard/TaskModal';
+import ProfileModal from '@/components/dashboard/ProfileModal';
+import CreateTaskModal from '@/components/dashboard/CreateTaskModal';
 import UserRoleBadge from '@/components/dashboard/UserRoleBadge';
 import { Button } from '@/components/ui/button';
-import { Plus, Users } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
+import { Plus, Loader2 } from 'lucide-react';
 
 const Index = () => {
-  // State
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
-  const [currentUser, setCurrentUser] = useState<User>(mockUsers[0]); // Admin by default
+  const navigate = useNavigate();
+  const { user, profile, isAdmin, loading: authLoading, signOut } = useAuth();
+  const { tasks, loading: tasksLoading, updateTaskPriority } = useTasks();
+
+  // Local state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState<Priority | 'all'>('all');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | 'priority'>('priority');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const isAdmin = currentUser.role === 'admin';
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
+
+  // Create user object for components that need it
+  const currentUser = useMemo(() => {
+    if (!profile) return null;
+    return {
+      id: profile.user_id,
+      name: profile.name,
+      email: profile.email,
+      avatar: profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.email}`,
+      role: isAdmin ? 'admin' as const : 'user' as const
+    };
+  }, [profile, isAdmin]);
 
   // Filter and sort tasks
   const filteredTasks = useMemo(() => {
@@ -66,48 +83,53 @@ const Index = () => {
   // Handlers
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
-    setIsModalOpen(true);
+    setIsTaskModalOpen(true);
   };
 
-  const handlePriorityChange = (taskId: string, priority: Priority) => {
-    setTasks((prev) =>
-      prev.map((task) =>
-        task.id === taskId
-          ? { ...task, priority, updatedAt: new Date().toISOString().split('T')[0] }
-          : task
-      )
-    );
+  const handlePriorityChange = async (taskId: string, priority: Priority) => {
+    await updateTaskPriority(taskId, priority);
     // Also update selected task if it's open
     if (selectedTask?.id === taskId) {
       setSelectedTask((prev) => (prev ? { ...prev, priority } : null));
     }
   };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
+  const handleCloseTaskModal = () => {
+    setIsTaskModalOpen(false);
     setTimeout(() => setSelectedTask(null), 200);
   };
 
-  const handleUserSwitch = (user: User) => {
-    setCurrentUser(user);
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/auth');
   };
 
-  // Handle task reordering via drag and drop
   const handleReorder = useCallback((reorderedTasks: Task[]) => {
-    // Update the order in the original tasks array based on filtered/sorted results
-    const taskIdOrder = reorderedTasks.map(t => t.id);
-    setTasks(prevTasks => {
-      const taskMap = new Map(prevTasks.map(t => [t.id, t]));
-      const orderedTasks = taskIdOrder.map(id => taskMap.get(id)!).filter(Boolean);
-      const remainingTasks = prevTasks.filter(t => !taskIdOrder.includes(t.id));
-      return [...orderedTasks, ...remainingTasks];
-    });
+    // For now, just update the local order (could be persisted to DB if needed)
+    console.log('Reordered tasks:', reorderedTasks.map(t => t.id));
   }, []);
+
+  // Loading state
+  if (authLoading || tasksLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
-      <Sidebar currentUser={currentUser} />
+      <Sidebar 
+        currentUser={currentUser} 
+        onLogout={handleLogout}
+        onProfileClick={() => setIsProfileModalOpen(true)}
+      />
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
@@ -121,46 +143,10 @@ const Index = () => {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              {/* User Role Badge & Switcher */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="gap-2">
-                    <Users className="w-4 h-4" />
-                    Chuyển người dùng
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>Chọn người dùng (Demo)</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {mockUsers.map((user) => (
-                    <DropdownMenuItem
-                      key={user.id}
-                      onClick={() => handleUserSwitch(user)}
-                      className="flex items-center gap-2"
-                    >
-                      <img
-                        src={user.avatar}
-                        alt={user.name}
-                        className="w-6 h-6 rounded-full"
-                      />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{user.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {user.role === 'admin' ? 'Quản trị viên' : 'Thành viên'}
-                        </p>
-                      </div>
-                      {currentUser.id === user.id && (
-                        <span className="w-2 h-2 rounded-full bg-done" />
-                      )}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
               <UserRoleBadge user={currentUser} />
 
               {isAdmin && (
-                <Button className="gap-2">
+                <Button className="gap-2" onClick={() => setIsCreateModalOpen(true)}>
                   <Plus className="w-4 h-4" />
                   Thêm công việc
                 </Button>
@@ -189,16 +175,45 @@ const Index = () => {
             onReorder={handleReorder}
             isAdmin={isAdmin}
           />
+
+          {/* Empty state */}
+          {filteredTasks.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">
+                {searchQuery || filterPriority !== 'all'
+                  ? 'Không tìm thấy công việc nào phù hợp'
+                  : 'Chưa có công việc nào'}
+              </p>
+              {isAdmin && !searchQuery && filterPriority === 'all' && (
+                <Button className="mt-4" onClick={() => setIsCreateModalOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Thêm công việc đầu tiên
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </main>
 
       {/* Task Modal */}
       <TaskModal
         task={selectedTask}
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
+        isOpen={isTaskModalOpen}
+        onClose={handleCloseTaskModal}
         onPriorityChange={handlePriorityChange}
         isAdmin={isAdmin}
+      />
+
+      {/* Profile Modal */}
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+      />
+
+      {/* Create Task Modal */}
+      <CreateTaskModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
       />
     </div>
   );
