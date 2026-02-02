@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Task, Priority, User } from '@/types/task';
 import { mockTasks, mockUsers } from '@/data/mockData';
 import Sidebar from '@/components/dashboard/Sidebar';
 import ProgressHeader from '@/components/dashboard/ProgressHeader';
 import SearchBar from '@/components/dashboard/SearchBar';
-import TaskGrid from '@/components/dashboard/TaskGrid';
+import DraggableTaskGrid from '@/components/dashboard/DraggableTaskGrid';
 import TaskModal from '@/components/dashboard/TaskModal';
 import UserRoleBadge from '@/components/dashboard/UserRoleBadge';
 import { Button } from '@/components/ui/button';
@@ -92,6 +92,18 @@ const Index = () => {
     setCurrentUser(user);
   };
 
+  // Handle task reordering via drag and drop
+  const handleReorder = useCallback((reorderedTasks: Task[]) => {
+    // Update the order in the original tasks array based on filtered/sorted results
+    const taskIdOrder = reorderedTasks.map(t => t.id);
+    setTasks(prevTasks => {
+      const taskMap = new Map(prevTasks.map(t => [t.id, t]));
+      const orderedTasks = taskIdOrder.map(id => taskMap.get(id)!).filter(Boolean);
+      const remainingTasks = prevTasks.filter(t => !taskIdOrder.includes(t.id));
+      return [...orderedTasks, ...remainingTasks];
+    });
+  }, []);
+
   return (
     <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
@@ -169,11 +181,12 @@ const Index = () => {
             onSortChange={setSortOrder}
           />
 
-          {/* Task Grid */}
-          <TaskGrid
+          {/* Draggable Task Grid */}
+          <DraggableTaskGrid
             tasks={filteredTasks}
             onTaskClick={handleTaskClick}
             onPriorityChange={handlePriorityChange}
+            onReorder={handleReorder}
             isAdmin={isAdmin}
           />
         </div>
