@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
 import { Calendar, MoreVertical, User as UserIcon, GripVertical } from 'lucide-react';
 import { Task, Priority } from '@/types/task';
 import PriorityBadge from './PriorityBadge';
@@ -30,30 +29,35 @@ const DraggableTaskCard = ({
   onClick, 
   onPriorityChange, 
   onReorder,
-  isAdmin 
 }: DraggableTaskCardProps) => {
-  const ref = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLDivElement>(null);
   const [dragState, setDragState] = useState<DragState>('idle');
 
   useEffect(() => {
-    const element = ref.current;
+    const element = cardRef.current;
     const handle = handleRef.current;
     if (!element || !handle) return;
 
-    return combine(
+    const cleanup = combine(
       draggable({
         element,
         dragHandle: handle,
         getInitialData: () => ({ taskId: task.id, index }),
-        onDragStart: () => setDragState('dragging'),
-        onDrop: () => setDragState('idle'),
+        onDragStart: () => {
+          setDragState('dragging');
+        },
+        onDrop: () => {
+          setDragState('idle');
+        },
       }),
       dropTargetForElements({
         element,
         getData: () => ({ taskId: task.id, index }),
         canDrop: ({ source }) => source.data.taskId !== task.id,
-        onDragEnter: () => setDragState('over'),
+        onDragEnter: () => {
+          setDragState('over');
+        },
         onDragLeave: () => setDragState('idle'),
         onDrop: ({ source }) => {
           setDragState('idle');
@@ -62,6 +66,8 @@ const DraggableTaskCard = ({
         },
       })
     );
+
+    return cleanup;
   }, [task.id, index, onReorder]);
 
   const handlePriorityChange = (e: React.MouseEvent, priority: Priority) => {
@@ -70,18 +76,10 @@ const DraggableTaskCard = ({
   };
 
   return (
-    <motion.div
-      ref={ref}
-      layout
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ 
-        layout: { type: "spring", stiffness: 350, damping: 30 },
-        opacity: { duration: 0.2 }
-      }}
+    <div
+      ref={cardRef}
       className={cn(
-        "task-card group relative",
+        "task-card group relative cursor-pointer",
         dragState === 'dragging' && 'opacity-50 scale-[1.02] shadow-xl z-50 ring-2 ring-primary/20',
         dragState === 'over' && 'ring-2 ring-primary/40 bg-primary/5'
       )}
@@ -165,7 +163,7 @@ const DraggableTaskCard = ({
           </div>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 };
 
