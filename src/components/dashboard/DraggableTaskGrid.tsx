@@ -1,5 +1,4 @@
 import { useCallback, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Task, Priority } from '@/types/task';
 import DraggableTaskCard from './DraggableTaskCard';
 import { monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
@@ -29,7 +28,7 @@ const DraggableTaskGrid = ({
     onReorder(newTasks);
   }, [tasks, onReorder]);
 
-  // Global monitor for debugging and potential enhancements
+  // Global monitor for cursor changes during drag
   useEffect(() => {
     return monitorForElements({
       onDragStart: () => {
@@ -42,34 +41,25 @@ const DraggableTaskGrid = ({
   }, []);
 
   return (
-    <motion.div
-      layout
-      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-    >
-      <AnimatePresence mode="popLayout">
-        {tasks.map((task, index) => (
-          <DraggableTaskCard
-            key={task.id}
-            task={task}
-            index={index}
-            onClick={() => onTaskClick(task)}
-            onPriorityChange={(priority) => onPriorityChange(task.id, priority)}
-            onReorder={handleReorder}
-            isAdmin={isAdmin}
-          />
-        ))}
-      </AnimatePresence>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {tasks.map((task, index) => (
+        <DraggableTaskCard
+          key={task.id}
+          task={task}
+          index={index}
+          onClick={() => onTaskClick(task)}
+          onPriorityChange={(priority) => onPriorityChange(task.id, priority)}
+          onReorder={handleReorder}
+          isAdmin={isAdmin}
+        />
+      ))}
       {tasks.length === 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="col-span-full py-12 text-center text-muted-foreground"
-        >
+        <div className="col-span-full py-12 text-center text-muted-foreground">
           <p className="text-lg">Không tìm thấy công việc nào</p>
           <p className="text-sm">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
-        </motion.div>
+        </div>
       )}
-    </motion.div>
+    </div>
   );
 };
 
