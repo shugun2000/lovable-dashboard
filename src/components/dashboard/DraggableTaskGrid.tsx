@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react';
 import { Task, Priority } from '@/types/task';
 import DraggableTaskCard from './DraggableTaskCard';
 import { monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
+import { LayoutGroup, motion } from 'framer-motion';
 
 interface DraggableTaskGridProps {
   tasks: Task[];
@@ -41,25 +42,32 @@ const DraggableTaskGrid = ({
   }, []);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-      {tasks.map((task, index) => (
-        <DraggableTaskCard
-          key={task.id}
-          task={task}
-          index={index}
-          onClick={() => onTaskClick(task)}
-          onPriorityChange={(priority) => onPriorityChange(task.id, priority)}
-          onReorder={handleReorder}
-          isAdmin={isAdmin}
-        />
-      ))}
-      {tasks.length === 0 && (
-        <div className="col-span-full py-12 text-center text-muted-foreground">
-          <p className="text-lg">Không tìm thấy công việc nào</p>
-          <p className="text-sm">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
-        </div>
-      )}
-    </div>
+    <LayoutGroup>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {tasks.map((task, index) => (
+          <motion.div
+            key={task.id}
+            layout
+            transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+          >
+            <DraggableTaskCard
+              task={task}
+              index={index}
+              onClick={() => onTaskClick(task)}
+              onPriorityChange={(priority) => onPriorityChange(task.id, priority)}
+              onReorder={handleReorder}
+              isAdmin={isAdmin}
+            />
+          </motion.div>
+        ))}
+        {tasks.length === 0 && (
+          <div className="col-span-full py-12 text-center text-muted-foreground">
+            <p className="text-lg">Không tìm thấy công việc nào</p>
+            <p className="text-sm">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+          </div>
+        )}
+      </div>
+    </LayoutGroup>
   );
 };
 
