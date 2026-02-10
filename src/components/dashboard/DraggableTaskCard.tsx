@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar, MoreVertical, User as UserIcon, GripVertical } from 'lucide-react';
 import { Task, Priority } from '@/types/task';
 import PriorityBadge from './PriorityBadge';
@@ -10,6 +11,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine';
+import { setCustomNativeDragPreview } from '@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview';
+import { preserveOffsetOnSource } from '@atlaskit/pragmatic-drag-and-drop/element/preserve-offset-on-source';
 import { cn } from '@/lib/utils';
 
 interface DraggableTaskCardProps {
@@ -21,7 +24,11 @@ interface DraggableTaskCardProps {
   isAdmin?: boolean;
 }
 
-type DragState = 'idle' | 'dragging' | 'over';
+type DragState = 
+  | { type: 'idle' }
+  | { type: 'preview'; container: HTMLElement }
+  | { type: 'dragging' }
+  | { type: 'over' };
 
 const DraggableTaskCard = ({ 
   task, 
@@ -32,7 +39,7 @@ const DraggableTaskCard = ({
 }: DraggableTaskCardProps) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLDivElement>(null);
-  const [dragState, setDragState] = useState<DragState>('idle');
+  const [dragState, setDragState] = useState<DragState>({ type: 'idle' });
 
   useEffect(() => {
     const element = cardRef.current;
@@ -44,11 +51,21 @@ const DraggableTaskCard = ({
         element,
         dragHandle: handle,
         getInitialData: () => ({ taskId: task.id, index }),
-        onDragStart: () => {
-          setDragState('dragging');
+        onGenerateDragPreview: ({ nativeSetDragImage, source, location }) => {
+          setCustomNativeDragPreview({
+            nativeSetDragImage,
+            getOffset: preserveOffsetOnSource({
+              element: source.element,
+              input: location.current.input,
+            }),
+            render: ({ container }) => {
+              setDragState({ type: 'preview', container });
+              return () => setDragState({ type: 'dragging' });
+            },
+          });
         },
         onDrop: () => {
-          setDragState('idle');
+          setDragState({ type: 'idle' });
         },
       }),
       dropTargetForElements({
@@ -56,11 +73,11 @@ const DraggableTaskCard = ({
         getData: () => ({ taskId: task.id, index }),
         canDrop: ({ source }) => source.data.taskId !== task.id,
         onDragEnter: () => {
-          setDragState('over');
+          setDragState({ type: 'over' });
         },
-        onDragLeave: () => setDragState('idle'),
+        onDragLeave: () => setDragState({ type: 'idle' }),
         onDrop: ({ source }) => {
-          setDragState('idle');
+          setDragState({ type: 'idle' });
           const sourceIndex = source.data.index as number;
           onReorder(sourceIndex, index);
         },
@@ -80,8 +97,8 @@ const DraggableTaskCard = ({
       ref={cardRef}
       className={cn(
         "task-card group relative cursor-pointer",
-        dragState === 'dragging' && 'opacity-50 scale-[1.02] shadow-xl z-50 ring-2 ring-primary/20',
-        dragState === 'over' && 'ring-2 ring-primary/40 bg-primary/5'
+        dragState.type === 'dragging' && 'opacity-50 scale-[1.02] shadow-xl z-50 ring-2 ring-primary/20',
+        dragState.type === 'over' && 'ring-2 ring-primary/40 bg-primary/5'
       )}
       onClick={onClick}
     >
@@ -163,6 +180,20 @@ const DraggableTaskCard = ({
           </div>
         )}
       </div>
+      {dragState.type === 'preview' && createPortal(
+        <div className="task-card p-4 w-[280px] rotate-[4deg] shadow-xl opacity-90">
+          <div className="flex items-start justify-between mb-3">
+            <PriorityBadge priority={task.priority} />
+          </div>
+          <h3 className="font-semibold text-card-foreground mb-2 line-clamp-2">
+            {task.title}
+          </h3>
+          <p className="text-sm text-muted-foreground line-clamp-1">
+            {task.description}
+          </p>
+        </div>,
+        dragState.container
+      )}
     </div>
   );
 };
