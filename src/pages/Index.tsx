@@ -86,6 +86,7 @@ const Index = () => {
         currentUser={currentUser} 
         onLogout={() => {}}
         onProfileClick={() => {}}
+        activePath="/"
       />
 
       <main className="flex-1 overflow-auto">
