@@ -3,7 +3,6 @@ export interface Member {
   name: string;
   dateOfBirth: string;
   unit: string;
-  team: string;
-  fileName?: string;
+  team: number;
   createdAt: string;
 }
