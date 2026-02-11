@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Member } from '@/types/member';
 import {
   Dialog,
@@ -9,7 +9,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, X, FileText } from 'lucide-react';
 
 interface CreateMemberModalProps {
   isOpen: boolean;
@@ -21,29 +20,19 @@ const CreateMemberModal = ({ isOpen, onClose, onCreate }: CreateMemberModalProps
   const [name, setName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [unit, setUnit] = useState('');
-  const [team, setTeam] = useState('');
-  const [file, setFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [team, setTeam] = useState<number>(1);
 
   const reset = () => {
     setName('');
     setDateOfBirth('');
     setUnit('');
-    setTeam('');
-    setFile(null);
+    setTeam(1);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !dateOfBirth || !unit || !team) return;
-
-    onCreate({
-      name,
-      dateOfBirth,
-      unit,
-      team,
-      fileName: file?.name,
-    });
+    if (!name || !dateOfBirth || !unit) return;
+    onCreate({ name, dateOfBirth, unit, team });
     reset();
   };
 
@@ -58,98 +47,26 @@ const CreateMemberModal = ({ isOpen, onClose, onCreate }: CreateMemberModalProps
         <DialogHeader>
           <DialogTitle>Thêm thành viên mới</DialogTitle>
         </DialogHeader>
-
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Họ tên</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="Nhập họ tên..."
-              required
-            />
+            <Input id="name" value={name} onChange={e => setName(e.target.value)} placeholder="Nhập họ tên..." required />
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="dob">Ngày tháng năm sinh</Label>
-            <Input
-              id="dob"
-              type="date"
-              value={dateOfBirth}
-              onChange={e => setDateOfBirth(e.target.value)}
-              required
-            />
+            <Input id="dob" type="date" value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} required />
           </div>
-
           <div className="space-y-2">
             <Label htmlFor="unit">Đơn vị</Label>
-            <Input
-              id="unit"
-              value={unit}
-              onChange={e => setUnit(e.target.value)}
-              placeholder="Nhập đơn vị..."
-              required
-            />
+            <Input id="unit" value={unit} onChange={e => setUnit(e.target.value)} placeholder="Nhập đơn vị..." required />
           </div>
-
           <div className="space-y-2">
-            <Label htmlFor="team">Đội</Label>
-            <Input
-              id="team"
-              value={team}
-              onChange={e => setTeam(e.target.value)}
-              placeholder="Nhập tên đội..."
-              required
-            />
+            <Label htmlFor="team">Đội (số)</Label>
+            <Input id="team" type="number" min={1} value={team} onChange={e => setTeam(Number(e.target.value))} required />
           </div>
-
-          <div className="space-y-2">
-            <Label>Tài liệu đính kèm</Label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".doc,.docx,.pdf"
-              className="hidden"
-              onChange={e => {
-                const f = e.target.files?.[0];
-                if (f) setFile(f);
-              }}
-            />
-            {file ? (
-              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                <FileText className="w-5 h-5 text-primary shrink-0" />
-                <span className="text-sm flex-1 truncate">{file.name}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFile(null);
-                    if (fileInputRef.current) fileInputRef.current.value = '';
-                  }}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-muted-foreground/30 rounded-lg text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-              >
-                <Upload className="w-5 h-5" />
-                <span className="text-sm">Tải lên file Word hoặc PDF</span>
-              </button>
-            )}
-          </div>
-
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={handleClose}>
-              Hủy
-            </Button>
-            <Button type="submit" disabled={!name || !dateOfBirth || !unit || !team}>
-              Tạo thành viên
-            </Button>
+            <Button type="button" variant="outline" onClick={handleClose}>Hủy</Button>
+            <Button type="submit" disabled={!name || !dateOfBirth || !unit}>Tạo thành viên</Button>
           </div>
         </form>
       </DialogContent>
