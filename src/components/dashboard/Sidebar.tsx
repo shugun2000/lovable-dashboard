@@ -8,20 +8,24 @@ import {
   User
 } from 'lucide-react';
 import { User as UserType } from '@/types/task';
+import { useNavigate } from 'react-router-dom';
 
 interface SidebarProps {
   currentUser: UserType;
   onLogout?: () => void;
   onProfileClick?: () => void;
+  activePath?: string;
 }
 
-const Sidebar = ({ currentUser, onLogout, onProfileClick }: SidebarProps) => {
+const Sidebar = ({ currentUser, onLogout, onProfileClick, activePath = '/' }: SidebarProps) => {
+  const navigate = useNavigate();
+
   const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', active: true },
-    { icon: CheckSquare, label: 'Công việc' },
-    { icon: FolderKanban, label: 'Dự án' },
-    { icon: Users, label: 'Thành viên' },
-    { icon: Settings, label: 'Cài đặt' },
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: CheckSquare, label: 'Công việc', path: '/tasks' },
+    { icon: FolderKanban, label: 'Dự án', path: '/projects' },
+    { icon: Users, label: 'Thành viên', path: '/members' },
+    { icon: Settings, label: 'Cài đặt', path: '/settings' },
   ];
 
   return (
@@ -42,7 +46,8 @@ const Sidebar = ({ currentUser, onLogout, onProfileClick }: SidebarProps) => {
           {navItems.map((item) => (
             <button
               key={item.label}
-              className={`sidebar-nav-item w-full ${item.active ? 'active' : ''}`}
+              onClick={() => navigate(item.path)}
+              className={`sidebar-nav-item w-full ${activePath === item.path ? 'active' : ''}`}
             >
               <item.icon className="w-5 h-5" />
               <span className="flex-1 text-left">{item.label}</span>
