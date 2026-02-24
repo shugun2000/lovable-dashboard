@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      documents: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_type: string
+          id: string
+          priority: string
+          uploaded_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_type?: string
+          id?: string
+          priority?: string
+          uploaded_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_type?: string
+          id?: string
+          priority?: string
+          uploaded_at?: string
+          uploaded_by?: string
+        }
+        Relationships: []
+      }
+      members: {
+        Row: {
+          created_at: string
+          date_of_birth: string
+          id: string
+          name: string
+          team: number
+          unit: string
+        }
+        Insert: {
+          created_at?: string
+          date_of_birth: string
+          id?: string
+          name: string
+          team?: number
+          unit: string
+        }
+        Update: {
+          created_at?: string
+          date_of_birth?: string
+          id?: string
+          name?: string
+          team?: number
+          unit?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
