@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Task, Priority } from '@/types/task';
+import { Document } from '@/types/document';
 import { mockUsers } from '@/data/mockData';
 import { supabase } from '@/integrations/supabase/client';
 import Sidebar from '@/components/dashboard/Sidebar';
@@ -11,16 +12,21 @@ import CreateTaskModal from '@/components/dashboard/CreateTaskModal';
 import UserRoleBadge from '@/components/dashboard/UserRoleBadge';
 import OnlineMembers from '@/components/dashboard/OnlineMembers';
 import UrgentTasksList from '@/components/dashboard/UrgentTasksList';
+import DocumentList from '@/components/documents/DocumentList';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Index = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
+  const [docsLoading, setDocsLoading] = useState(true);
   const currentUser = mockUsers[0];
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [docSearchQuery, setDocSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState<Priority | 'all'>('all');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | 'priority'>('priority');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -58,6 +64,50 @@ const Index = () => {
 
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
+  const fetchDocuments = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('*')
+      .order('uploaded_at', { ascending: false });
+    if (error) {
+      console.error(error);
+    } else {
+      setDocuments(
+        (data || []).map((d: any) => ({
+          id: d.id,
+          fileName: d.file_name,
+          fileType: d.file_type as 'word' | 'pdf',
+          uploadedBy: d.uploaded_by,
+          uploadedAt: d.uploaded_at,
+          priority: d.priority as Priority,
+        }))
+      );
+    }
+    setDocsLoading(false);
+  }, []);
+
+  useEffect(() => { fetchDocuments(); }, [fetchDocuments]);
+
+  const filteredDocuments = useMemo(() => {
+    if (!docSearchQuery) return documents;
+    const q = docSearchQuery.toLowerCase();
+    return documents.filter(d =>
+      d.fileName.toLowerCase().includes(q) || d.uploadedBy.toLowerCase().includes(q)
+    );
+  }, [documents, docSearchQuery]);
+
+  const handleDocPriorityChange = useCallback(async (docId: string, priority: Priority) => {
+    const { error } = await supabase.from('documents').update({ priority }).eq('id', docId);
+    if (error) {
+      toast.error('Lỗi cập nhật trạng thái');
+    } else {
+      setDocuments(prev => prev.map(d => d.id === docId ? { ...d, priority } : d));
+    }
+  }, []);
+
+  const handleDocReorder = useCallback((reordered: Document[]) => {
+    setDocuments(reordered);
+  }, []);
   const filteredTasks = useMemo(() => {
     let result = [...tasks];
 
@@ -149,41 +199,76 @@ const Index = () => {
 
           <ProgressHeader tasks={tasks} />
 
-          {/* Urgent Tasks Summary */}
-          {urgentTasks.length > 0 && (
-            <UrgentTasksList tasks={urgentTasks} onTaskClick={handleTaskClick} />
-          )}
+          <Tabs defaultValue="tasks" className="w-full">
+            <TabsList>
+              <TabsTrigger value="tasks">Tiến độ công việc</TabsTrigger>
+              <TabsTrigger value="documents">Tài liệu công việc</TabsTrigger>
+            </TabsList>
 
-          <SearchBar
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            filterPriority={filterPriority}
-            onFilterChange={setFilterPriority}
-            sortOrder={sortOrder}
-            onSortChange={setSortOrder}
-          />
+            <TabsContent value="tasks" className="space-y-6">
+              {/* Urgent Tasks Summary */}
+              {urgentTasks.length > 0 && (
+                <UrgentTasksList tasks={urgentTasks} onTaskClick={handleTaskClick} />
+              )}
 
-          {loading ? (
-            <div className="text-center py-12 text-muted-foreground">Đang tải...</div>
-          ) : (
-            <DraggableTaskGrid
-              tasks={filteredTasks}
-              onTaskClick={handleTaskClick}
-              onPriorityChange={handlePriorityChange}
-              onReorder={handleReorder}
-              isAdmin={isAdmin}
-            />
-          )}
+              <SearchBar
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                filterPriority={filterPriority}
+                onFilterChange={setFilterPriority}
+                sortOrder={sortOrder}
+                onSortChange={setSortOrder}
+              />
 
-          {!loading && filteredTasks.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">
-                {searchQuery || filterPriority !== 'all'
-                  ? 'Không tìm thấy công việc nào phù hợp'
-                  : 'Chưa có công việc nào'}
-              </p>
-            </div>
-          )}
+              {loading ? (
+                <div className="text-center py-12 text-muted-foreground">Đang tải...</div>
+              ) : (
+                <DraggableTaskGrid
+                  tasks={filteredTasks}
+                  onTaskClick={handleTaskClick}
+                  onPriorityChange={handlePriorityChange}
+                  onReorder={handleReorder}
+                  isAdmin={isAdmin}
+                />
+              )}
+
+              {!loading && filteredTasks.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">
+                    {searchQuery || filterPriority !== 'all'
+                      ? 'Không tìm thấy công việc nào phù hợp'
+                      : 'Chưa có công việc nào'}
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="documents" className="space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="search-input flex-1 max-w-md">
+                  <Search className="w-5 h-5 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Tìm kiếm tài liệu..."
+                    value={docSearchQuery}
+                    onChange={e => setDocSearchQuery(e.target.value)}
+                    className="flex-1 bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
+                  />
+                </div>
+              </div>
+
+              {docsLoading ? (
+                <div className="text-center py-12 text-muted-foreground">Đang tải...</div>
+              ) : (
+                <DocumentList
+                  documents={filteredDocuments}
+                  onReorder={handleDocReorder}
+                  onPriorityChange={handleDocPriorityChange}
+                  isAdmin={isAdmin}
+                />
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
 

@@ -23,6 +23,7 @@ const Members = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [filterUnit, setFilterUnit] = useState<string>('all');
+  const [filterTeam, setFilterTeam] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const currentUser = mockUsers[0];
   const isAdmin = currentUser.role === 'admin';
@@ -57,17 +58,25 @@ const Members = () => {
     return Array.from(set).sort();
   }, [members]);
 
+  const teams = useMemo(() => {
+    const set = new Set(members.map(m => m.team));
+    return Array.from(set).sort((a, b) => a - b);
+  }, [members]);
+
   const filteredMembers = useMemo(() => {
     let result = members;
     if (filterUnit !== 'all') {
       result = result.filter(m => m.unit === filterUnit);
+    }
+    if (filterTeam !== 'all') {
+      result = result.filter(m => m.team === Number(filterTeam));
     }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(m => m.name.toLowerCase().includes(q) || m.unit.toLowerCase().includes(q));
     }
     return result;
-  }, [members, filterUnit, searchQuery]);
+  }, [members, filterUnit, filterTeam, searchQuery]);
 
   const handleCreate = useCallback(async (member: Omit<Member, 'id' | 'createdAt'>) => {
     const { error } = await supabase.from('members').insert({
@@ -150,6 +159,17 @@ const Members = () => {
                 <SelectItem value="all">Tất cả đơn vị</SelectItem>
                 {units.map(u => (
                   <SelectItem key={u} value={u}>{u}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterTeam} onValueChange={setFilterTeam}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Lọc theo đội" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả đội</SelectItem>
+                {teams.map(t => (
+                  <SelectItem key={t} value={String(t)}>Đội {t}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
