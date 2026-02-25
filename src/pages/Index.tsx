@@ -1,6 +1,7 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Task, Priority } from '@/types/task';
-import { mockTasks, mockUsers } from '@/data/mockData';
+import { mockUsers } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
 import Sidebar from '@/components/dashboard/Sidebar';
 import ProgressHeader from '@/components/dashboard/ProgressHeader';
 import SearchBar from '@/components/dashboard/SearchBar';
@@ -8,14 +9,17 @@ import DraggableTaskGrid from '@/components/dashboard/DraggableTaskGrid';
 import TaskModal from '@/components/dashboard/TaskModal';
 import CreateTaskModal from '@/components/dashboard/CreateTaskModal';
 import UserRoleBadge from '@/components/dashboard/UserRoleBadge';
+import OnlineMembers from '@/components/dashboard/OnlineMembers';
+import UrgentTasksList from '@/components/dashboard/UrgentTasksList';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
+import { toast } from 'sonner';
 
 const Index = () => {
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
-  const currentUser = mockUsers[0]; // Admin user
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const currentUser = mockUsers[0];
 
-  // Local state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState<Priority | 'all'>('all');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | 'priority'>('priority');
@@ -25,7 +29,35 @@ const Index = () => {
 
   const isAdmin = currentUser.role === 'admin';
 
-  // Filter and sort tasks
+  const fetchTasks = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) {
+      toast.error('Lỗi tải công việc');
+      console.error(error);
+    } else {
+      setTasks(
+        (data || []).map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description,
+          priority: t.priority as Priority,
+          assignee: t.assignee,
+          dueDate: t.due_date,
+          createdAt: t.created_at,
+          updatedAt: t.updated_at,
+          details: t.details,
+          tags: t.tags,
+        }))
+      );
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+
   const filteredTasks = useMemo(() => {
     let result = [...tasks];
 
@@ -55,19 +87,22 @@ const Index = () => {
     return result;
   }, [tasks, searchQuery, filterPriority, sortOrder]);
 
+  const urgentTasks = useMemo(() => tasks.filter(t => t.priority === 'urgent').slice(0, 10), [tasks]);
+
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
     setIsTaskModalOpen(true);
   };
 
   const handlePriorityChange = async (taskId: string, priority: Priority) => {
-    setTasks(prev =>
-      prev.map(task =>
-        task.id === taskId ? { ...task, priority } : task
-      )
-    );
-    if (selectedTask?.id === taskId) {
-      setSelectedTask((prev) => (prev ? { ...prev, priority } : null));
+    const { error } = await supabase.from('tasks').update({ priority }).eq('id', taskId);
+    if (error) {
+      toast.error('Lỗi cập nhật');
+    } else {
+      setTasks(prev => prev.map(task => task.id === taskId ? { ...task, priority } : task));
+      if (selectedTask?.id === taskId) {
+        setSelectedTask(prev => prev ? { ...prev, priority } : null);
+      }
     }
   };
 
@@ -109,7 +144,15 @@ const Index = () => {
             </div>
           </div>
 
+          {/* Online Members */}
+          <OnlineMembers />
+
           <ProgressHeader tasks={tasks} />
+
+          {/* Urgent Tasks Summary */}
+          {urgentTasks.length > 0 && (
+            <UrgentTasksList tasks={urgentTasks} onTaskClick={handleTaskClick} />
+          )}
 
           <SearchBar
             searchQuery={searchQuery}
@@ -120,15 +163,19 @@ const Index = () => {
             onSortChange={setSortOrder}
           />
 
-          <DraggableTaskGrid
-            tasks={filteredTasks}
-            onTaskClick={handleTaskClick}
-            onPriorityChange={handlePriorityChange}
-            onReorder={handleReorder}
-            isAdmin={isAdmin}
-          />
+          {loading ? (
+            <div className="text-center py-12 text-muted-foreground">Đang tải...</div>
+          ) : (
+            <DraggableTaskGrid
+              tasks={filteredTasks}
+              onTaskClick={handleTaskClick}
+              onPriorityChange={handlePriorityChange}
+              onReorder={handleReorder}
+              isAdmin={isAdmin}
+            />
+          )}
 
-          {filteredTasks.length === 0 && (
+          {!loading && filteredTasks.length === 0 && (
             <div className="text-center py-12">
               <p className="text-muted-foreground">
                 {searchQuery || filterPriority !== 'all'

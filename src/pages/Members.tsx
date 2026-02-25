@@ -1,6 +1,7 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Member } from '@/types/member';
 import { mockUsers } from '@/data/mockData';
+import { supabase } from '@/integrations/supabase/client';
 import Sidebar from '@/components/dashboard/Sidebar';
 import MemberList from '@/components/members/MemberList';
 import CreateMemberModal from '@/components/members/CreateMemberModal';
@@ -13,23 +14,43 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Filter } from 'lucide-react';
-
-const initialMembers: Member[] = [
-  { id: '1', name: 'Nguyễn Văn A', dateOfBirth: '1995-03-15', unit: 'Phòng Kỹ thuật', team: 1, createdAt: '2024-01-01' },
-  { id: '2', name: 'Trần Thị B', dateOfBirth: '1998-07-22', unit: 'Phòng Kỹ thuật', team: 2, createdAt: '2024-01-02' },
-  { id: '3', name: 'Lê Văn C', dateOfBirth: '1997-11-08', unit: 'Phòng Marketing', team: 1, createdAt: '2024-01-03' },
-  { id: '4', name: 'Phạm Thị D', dateOfBirth: '1996-05-20', unit: 'Phòng Marketing', team: 3, createdAt: '2024-01-04' },
-  { id: '5', name: 'Hoàng Văn E', dateOfBirth: '1999-12-01', unit: 'Phòng Kỹ thuật', team: 3, createdAt: '2024-01-05' },
-];
+import { Plus, Filter, Search } from 'lucide-react';
+import { toast } from 'sonner';
 
 const Members = () => {
-  const [members, setMembers] = useState<Member[]>(initialMembers);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [filterUnit, setFilterUnit] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const currentUser = mockUsers[0];
   const isAdmin = currentUser.role === 'admin';
+
+  const fetchMembers = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('members')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) {
+      toast.error('Lỗi tải danh sách thành viên');
+      console.error(error);
+    } else {
+      setMembers(
+        (data || []).map((m: any) => ({
+          id: m.id,
+          name: m.name,
+          dateOfBirth: m.date_of_birth,
+          unit: m.unit,
+          team: m.team,
+          createdAt: m.created_at,
+        }))
+      );
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchMembers(); }, [fetchMembers]);
 
   const units = useMemo(() => {
     const set = new Set(members.map(m => m.unit));
@@ -37,32 +58,56 @@ const Members = () => {
   }, [members]);
 
   const filteredMembers = useMemo(() => {
-    if (filterUnit === 'all') return members;
-    return members.filter(m => m.unit === filterUnit);
-  }, [members, filterUnit]);
+    let result = members;
+    if (filterUnit !== 'all') {
+      result = result.filter(m => m.unit === filterUnit);
+    }
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(m => m.name.toLowerCase().includes(q) || m.unit.toLowerCase().includes(q));
+    }
+    return result;
+  }, [members, filterUnit, searchQuery]);
 
-  const handleCreate = useCallback((member: Omit<Member, 'id' | 'createdAt'>) => {
-    const newMember: Member = {
-      ...member,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-    };
-    setMembers(prev => [newMember, ...prev]);
+  const handleCreate = useCallback(async (member: Omit<Member, 'id' | 'createdAt'>) => {
+    const { error } = await supabase.from('members').insert({
+      name: member.name,
+      date_of_birth: member.dateOfBirth,
+      unit: member.unit,
+      team: member.team,
+    });
+    if (error) {
+      toast.error('Lỗi tạo thành viên');
+      console.error(error);
+    } else {
+      toast.success('Đã tạo thành viên');
+      fetchMembers();
+    }
     setIsCreateOpen(false);
-  }, []);
+  }, [fetchMembers]);
 
-  const handleSave = useCallback((updated: Member) => {
-    setMembers(prev => prev.map(m => m.id === updated.id ? updated : m));
-  }, []);
+  const handleSave = useCallback(async (updated: Member) => {
+    const { error } = await supabase.from('members').update({
+      name: updated.name,
+      date_of_birth: updated.dateOfBirth,
+      unit: updated.unit,
+      team: updated.team,
+    }).eq('id', updated.id);
+    if (error) {
+      toast.error('Lỗi cập nhật thành viên');
+      console.error(error);
+    } else {
+      toast.success('Đã cập nhật thành viên');
+      fetchMembers();
+    }
+  }, [fetchMembers]);
 
   const handleReorder = useCallback((reordered: Member[]) => {
     setMembers(reordered);
   }, []);
 
   const handleMemberClick = useCallback((member: Member) => {
-    if (isAdmin) {
-      setEditingMember(member);
-    }
+    if (isAdmin) setEditingMember(member);
   }, [isAdmin]);
 
   return (
@@ -74,7 +119,7 @@ const Members = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-foreground">Thành viên</h1>
-              <p className="text-muted-foreground">Quản lý danh sách thành viên trong nhóm</p>
+              <p className="text-muted-foreground">Quản lý danh sách thành viên trong nhóm ({filteredMembers.length} người)</p>
             </div>
             {isAdmin && (
               <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
@@ -84,8 +129,18 @@ const Members = () => {
             )}
           </div>
 
-          {/* Unit filter */}
+          {/* Search + Filter */}
           <div className="flex items-center gap-3">
+            <div className="search-input flex-1 max-w-md">
+              <Search className="w-5 h-5 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm thành viên..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="flex-1 bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
+              />
+            </div>
             <Filter className="w-4 h-4 text-muted-foreground" />
             <Select value={filterUnit} onValueChange={setFilterUnit}>
               <SelectTrigger className="w-[220px]">
@@ -100,7 +155,11 @@ const Members = () => {
             </Select>
           </div>
 
-          <MemberList members={filteredMembers} onReorder={handleReorder} onMemberClick={handleMemberClick} />
+          {loading ? (
+            <div className="text-center py-12 text-muted-foreground">Đang tải...</div>
+          ) : (
+            <MemberList members={filteredMembers} onReorder={handleReorder} onMemberClick={handleMemberClick} />
+          )}
         </div>
       </main>
 
