@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { Document } from '@/types/document';
 import { Priority, PRIORITY_LABELS } from '@/types/task';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
   DialogContent,
@@ -16,17 +17,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Upload, X, FileText } from 'lucide-react';
+import { Upload, X, FileText, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface UploadDocumentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onUpload: (doc: Omit<Document, 'id' | 'uploadedAt' | 'uploadedBy'>) => void;
+  onUploaded: () => void;
 }
 
-const UploadDocumentModal = ({ isOpen, onClose, onUpload }: UploadDocumentModalProps) => {
+const UploadDocumentModal = ({ isOpen, onClose, onUploaded }: UploadDocumentModalProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [priority, setPriority] = useState<Priority>('later');
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
@@ -34,19 +37,47 @@ const UploadDocumentModal = ({ isOpen, onClose, onUpload }: UploadDocumentModalP
     setPriority('later');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
 
-    const ext = file.name.split('.').pop()?.toLowerCase();
-    const fileType = ext === 'pdf' ? 'pdf' : 'word';
+    setUploading(true);
+    try {
+      // Upload file to storage
+      const filePath = `${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
 
-    onUpload({
-      fileName: file.name,
-      fileType: fileType as 'word' | 'pdf',
-      priority,
-    });
-    reset();
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      const fileType = ext === 'pdf' ? 'pdf' : 'word';
+
+      const { error: dbError } = await supabase.from('documents').insert({
+        file_name: file.name,
+        file_type: fileType,
+        uploaded_by: 'Người dùng',
+        priority,
+        file_url: publicUrl,
+      });
+
+      if (dbError) throw dbError;
+
+      toast.success('Đã đăng tài liệu');
+      reset();
+      onUploaded();
+      onClose();
+    } catch (err: any) {
+      toast.error('Lỗi đăng tài liệu');
+      console.error(err);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleClose = () => {
@@ -116,7 +147,14 @@ const UploadDocumentModal = ({ isOpen, onClose, onUpload }: UploadDocumentModalP
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={handleClose}>Hủy</Button>
-            <Button type="submit" disabled={!file}>Đăng tài liệu</Button>
+            <Button type="submit" disabled={!file || uploading}>
+              {uploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Đang tải...
+                </>
+              ) : 'Đăng tài liệu'}
+            </Button>
           </div>
         </form>
       </DialogContent>

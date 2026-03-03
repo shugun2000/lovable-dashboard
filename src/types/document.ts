@@ -7,4 +7,5 @@ export interface Document {
   uploadedBy: string;
   uploadedAt: string;
   priority: Priority;
+  fileUrl?: string;
 }

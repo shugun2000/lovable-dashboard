@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Document } from '@/types/document';
 import { Priority } from '@/types/task';
 import { mockUsers } from '@/data/mockData';
@@ -35,6 +35,7 @@ const Tasks = () => {
           uploadedBy: d.uploaded_by,
           uploadedAt: d.uploaded_at,
           priority: d.priority as Priority,
+          fileUrl: d.file_url,
         }))
       );
     }
@@ -43,29 +44,13 @@ const Tasks = () => {
 
   useEffect(() => { fetchDocuments(); }, [fetchDocuments]);
 
-  const filteredDocuments = searchQuery
-    ? documents.filter(d =>
-        d.fileName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        d.uploadedBy.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : documents;
-
-  const handleUpload = useCallback(async (doc: Omit<Document, 'id' | 'uploadedAt' | 'uploadedBy'>) => {
-    const { error } = await supabase.from('documents').insert({
-      file_name: doc.fileName,
-      file_type: doc.fileType,
-      uploaded_by: currentUser.name,
-      priority: doc.priority,
-    });
-    if (error) {
-      toast.error('Lỗi đăng tài liệu');
-      console.error(error);
-    } else {
-      toast.success('Đã đăng tài liệu');
-      fetchDocuments();
-    }
-    setIsUploadOpen(false);
-  }, [currentUser.name, fetchDocuments]);
+  const filteredDocuments = useMemo(() => {
+    if (!searchQuery) return documents;
+    const q = searchQuery.toLowerCase();
+    return documents.filter(d =>
+      d.fileName.toLowerCase().includes(q) || d.uploadedBy.toLowerCase().includes(q)
+    );
+  }, [documents, searchQuery]);
 
   const handlePriorityChange = useCallback(async (docId: string, priority: Priority) => {
     const { error } = await supabase.from('documents').update({ priority }).eq('id', docId);
@@ -97,7 +82,6 @@ const Tasks = () => {
             </Button>
           </div>
 
-          {/* Search */}
           <div className="flex items-center gap-3">
             <div className="search-input flex-1 max-w-md">
               <Search className="w-5 h-5 text-muted-foreground" />
@@ -124,7 +108,7 @@ const Tasks = () => {
         </div>
       </main>
 
-      <UploadDocumentModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUpload={handleUpload} />
+      <UploadDocumentModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUploaded={fetchDocuments} />
     </div>
   );
 };
