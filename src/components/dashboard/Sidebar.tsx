@@ -5,7 +5,8 @@ import {
   Settings, 
   LogOut,
   FolderKanban,
-  User
+  User,
+  UserCog
 } from 'lucide-react';
 import { User as UserType } from '@/types/task';
 import { useNavigate } from 'react-router-dom';
@@ -25,6 +26,7 @@ const Sidebar = ({ currentUser, onLogout, onProfileClick, activePath = '/' }: Si
     { icon: CheckSquare, label: 'Công việc', path: '/tasks' },
     { icon: FolderKanban, label: 'Dự án', path: '/projects' },
     { icon: Users, label: 'Thành viên', path: '/members' },
+    { icon: UserCog, label: 'Tài khoản', path: '/accounts' },
     { icon: Settings, label: 'Cài đặt', path: '/settings' },
   ];
 

@@ -19,6 +19,7 @@ export type Database = {
           created_at: string
           file_name: string
           file_type: string
+          file_url: string | null
           id: string
           priority: string
           uploaded_at: string
@@ -28,6 +29,7 @@ export type Database = {
           created_at?: string
           file_name: string
           file_type?: string
+          file_url?: string | null
           id?: string
           priority?: string
           uploaded_at?: string
@@ -37,6 +39,7 @@ export type Database = {
           created_at?: string
           file_name?: string
           file_type?: string
+          file_url?: string | null
           id?: string
           priority?: string
           uploaded_at?: string

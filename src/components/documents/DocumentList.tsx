@@ -4,7 +4,7 @@ import { Priority, PRIORITY_LABELS } from '@/types/task';
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { LayoutGroup, motion } from 'framer-motion';
-import { GripVertical, FileText, FileIcon, User, Clock } from 'lucide-react';
+import { GripVertical, FileText, FileIcon, User, Clock, Download } from 'lucide-react';
 import PriorityBadge from '@/components/dashboard/PriorityBadge';
 import {
   Select,
@@ -85,6 +85,16 @@ const DraggableDocumentRow = ({
     </div>
   );
 
+  const handleDownload = () => {
+    if (doc.fileUrl) {
+      const a = document.createElement('a');
+      a.href = doc.fileUrl;
+      a.download = doc.fileName;
+      a.target = '_blank';
+      a.click();
+    }
+  };
+
   return (
     <div
       ref={ref}
@@ -133,6 +143,16 @@ const DraggableDocumentRow = ({
           </Select>
         </div>
       </div>
+
+      {doc.fileUrl && (
+        <button
+          onClick={handleDownload}
+          className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          title="Tải xuống"
+        >
+          <Download className="w-5 h-5" />
+        </button>
+      )}
     </div>
   );
 };
@@ -183,6 +203,7 @@ const DocumentList = ({ documents, onReorder, onPriorityChange, isAdmin }: Docum
             <span>Thời gian</span>
             <span>Trạng thái</span>
           </div>
+          <div className="w-9" />
         </div>
 
         {documents.map((doc, index) => (

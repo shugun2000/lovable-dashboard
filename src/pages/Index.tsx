@@ -13,9 +13,10 @@ import UserRoleBadge from '@/components/dashboard/UserRoleBadge';
 import OnlineMembers from '@/components/dashboard/OnlineMembers';
 import UrgentTasksList from '@/components/dashboard/UrgentTasksList';
 import DocumentList from '@/components/documents/DocumentList';
+import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Index = () => {
@@ -32,6 +33,7 @@ const Index = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
 
   const isAdmin = currentUser.role === 'admin';
 
@@ -80,6 +82,7 @@ const Index = () => {
           uploadedBy: d.uploaded_by,
           uploadedAt: d.uploaded_at,
           priority: d.priority as Priority,
+          fileUrl: d.file_url,
         }))
       );
     }
@@ -108,21 +111,22 @@ const Index = () => {
   const handleDocReorder = useCallback((reordered: Document[]) => {
     setDocuments(reordered);
   }, []);
-  const filteredTasks = useMemo(() => {
-    let result = [...tasks];
+
+  // Split tasks: active (urgent/later) vs done
+  const activeTasks = useMemo(() => {
+    let result = tasks.filter(t => t.priority !== 'done');
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (task) =>
-          task.title.toLowerCase().includes(query) ||
-          task.description.toLowerCase().includes(query) ||
-          task.tags?.some((tag) => tag.toLowerCase().includes(query))
+      result = result.filter(t =>
+        t.title.toLowerCase().includes(query) ||
+        t.description.toLowerCase().includes(query) ||
+        t.tags?.some(tag => tag.toLowerCase().includes(query))
       );
     }
 
-    if (filterPriority !== 'all') {
-      result = result.filter((task) => task.priority === filterPriority);
+    if (filterPriority !== 'all' && filterPriority !== 'done') {
+      result = result.filter(t => t.priority === filterPriority);
     }
 
     if (sortOrder === 'priority') {
@@ -136,6 +140,19 @@ const Index = () => {
 
     return result;
   }, [tasks, searchQuery, filterPriority, sortOrder]);
+
+  const doneTasks = useMemo(() => {
+    let result = tasks.filter(t => t.priority === 'done');
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(t =>
+        t.title.toLowerCase().includes(query) ||
+        t.description.toLowerCase().includes(query) ||
+        t.tags?.some(tag => tag.toLowerCase().includes(query))
+      );
+    }
+    return result;
+  }, [tasks, searchQuery]);
 
   const urgentTasks = useMemo(() => tasks.filter(t => t.priority === 'urgent').slice(0, 10), [tasks]);
 
@@ -199,14 +216,14 @@ const Index = () => {
 
           <ProgressHeader tasks={tasks} />
 
-          <Tabs defaultValue="tasks" className="w-full">
+          <Tabs defaultValue="active" className="w-full">
             <TabsList>
-              <TabsTrigger value="tasks">Tiến độ công việc</TabsTrigger>
+              <TabsTrigger value="active">Đang thực hiện ({activeTasks.length})</TabsTrigger>
+              <TabsTrigger value="done">Đã hoàn thành ({doneTasks.length})</TabsTrigger>
               <TabsTrigger value="documents">Tài liệu công việc</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="tasks" className="space-y-6">
-              {/* Urgent Tasks Summary */}
+            <TabsContent value="active" className="space-y-6">
               {urgentTasks.length > 0 && (
                 <UrgentTasksList tasks={urgentTasks} onTaskClick={handleTaskClick} />
               )}
@@ -224,7 +241,7 @@ const Index = () => {
                 <div className="text-center py-12 text-muted-foreground">Đang tải...</div>
               ) : (
                 <DraggableTaskGrid
-                  tasks={filteredTasks}
+                  tasks={activeTasks}
                   onTaskClick={handleTaskClick}
                   onPriorityChange={handlePriorityChange}
                   onReorder={handleReorder}
@@ -232,7 +249,7 @@ const Index = () => {
                 />
               )}
 
-              {!loading && filteredTasks.length === 0 && (
+              {!loading && activeTasks.length === 0 && (
                 <div className="text-center py-12">
                   <p className="text-muted-foreground">
                     {searchQuery || filterPriority !== 'all'
@@ -243,8 +260,37 @@ const Index = () => {
               )}
             </TabsContent>
 
+            <TabsContent value="done" className="space-y-6">
+              <SearchBar
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                filterPriority={filterPriority}
+                onFilterChange={setFilterPriority}
+                sortOrder={sortOrder}
+                onSortChange={setSortOrder}
+              />
+
+              {loading ? (
+                <div className="text-center py-12 text-muted-foreground">Đang tải...</div>
+              ) : (
+                <DraggableTaskGrid
+                  tasks={doneTasks}
+                  onTaskClick={handleTaskClick}
+                  onPriorityChange={handlePriorityChange}
+                  onReorder={handleReorder}
+                  isAdmin={isAdmin}
+                />
+              )}
+
+              {!loading && doneTasks.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">Chưa có công việc hoàn thành</p>
+                </div>
+              )}
+            </TabsContent>
+
             <TabsContent value="documents" className="space-y-6">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between">
                 <div className="search-input flex-1 max-w-md">
                   <Search className="w-5 h-5 text-muted-foreground" />
                   <input
@@ -255,6 +301,10 @@ const Index = () => {
                     className="flex-1 bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
                   />
                 </div>
+                <Button className="gap-2" onClick={() => setIsUploadOpen(true)}>
+                  <Upload className="w-4 h-4" />
+                  Đăng tài liệu
+                </Button>
               </div>
 
               {docsLoading ? (
@@ -283,6 +333,12 @@ const Index = () => {
       <CreateTaskModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
+      />
+
+      <UploadDocumentModal
+        isOpen={isUploadOpen}
+        onClose={() => setIsUploadOpen(false)}
+        onUploaded={fetchDocuments}
       />
     </div>
   );
