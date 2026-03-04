@@ -9,11 +9,13 @@ import SearchBar from '@/components/dashboard/SearchBar';
 import DraggableTaskGrid from '@/components/dashboard/DraggableTaskGrid';
 import TaskModal from '@/components/dashboard/TaskModal';
 import CreateTaskModal from '@/components/dashboard/CreateTaskModal';
+import EditTaskModal from '@/components/dashboard/EditTaskModal';
 import UserRoleBadge from '@/components/dashboard/UserRoleBadge';
 import OnlineMembers from '@/components/dashboard/OnlineMembers';
 import UrgentTasksList from '@/components/dashboard/UrgentTasksList';
 import DocumentList from '@/components/documents/DocumentList';
 import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
+import DocumentPreviewModal from '@/components/documents/DocumentPreviewModal';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Plus, Search, Upload } from 'lucide-react';
@@ -33,7 +35,10 @@ const Index = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
 
   const isAdmin = currentUser.role === 'admin';
 
@@ -44,20 +49,13 @@ const Index = () => {
       .order('created_at', { ascending: false });
     if (error) {
       toast.error('Lỗi tải công việc');
-      console.error(error);
     } else {
       setTasks(
         (data || []).map((t: any) => ({
-          id: t.id,
-          title: t.title,
-          description: t.description,
-          priority: t.priority as Priority,
-          assignee: t.assignee,
-          dueDate: t.due_date,
-          createdAt: t.created_at,
-          updatedAt: t.updated_at,
-          details: t.details,
-          tags: t.tags,
+          id: t.id, title: t.title, description: t.description,
+          priority: t.priority as Priority, assignee: t.assignee,
+          dueDate: t.due_date, createdAt: t.created_at, updatedAt: t.updated_at,
+          details: t.details, tags: t.tags,
         }))
       );
     }
@@ -71,18 +69,12 @@ const Index = () => {
       .from('documents')
       .select('*')
       .order('uploaded_at', { ascending: false });
-    if (error) {
-      console.error(error);
-    } else {
+    if (error) { console.error(error); } else {
       setDocuments(
         (data || []).map((d: any) => ({
-          id: d.id,
-          fileName: d.file_name,
-          fileType: d.file_type as 'word' | 'pdf',
-          uploadedBy: d.uploaded_by,
-          uploadedAt: d.uploaded_at,
-          priority: d.priority as Priority,
-          fileUrl: d.file_url,
+          id: d.id, fileName: d.file_name, fileType: d.file_type as 'word' | 'pdf',
+          uploadedBy: d.uploaded_by, uploadedAt: d.uploaded_at,
+          priority: d.priority as Priority, fileUrl: d.file_url,
         }))
       );
     }
@@ -94,126 +86,79 @@ const Index = () => {
   const filteredDocuments = useMemo(() => {
     if (!docSearchQuery) return documents;
     const q = docSearchQuery.toLowerCase();
-    return documents.filter(d =>
-      d.fileName.toLowerCase().includes(q) || d.uploadedBy.toLowerCase().includes(q)
-    );
+    return documents.filter(d => d.fileName.toLowerCase().includes(q) || d.uploadedBy.toLowerCase().includes(q));
   }, [documents, docSearchQuery]);
 
   const handleDocPriorityChange = useCallback(async (docId: string, priority: Priority) => {
     const { error } = await supabase.from('documents').update({ priority }).eq('id', docId);
-    if (error) {
-      toast.error('Lỗi cập nhật trạng thái');
-    } else {
-      setDocuments(prev => prev.map(d => d.id === docId ? { ...d, priority } : d));
-    }
+    if (error) { toast.error('Lỗi cập nhật trạng thái'); }
+    else { setDocuments(prev => prev.map(d => d.id === docId ? { ...d, priority } : d)); }
   }, []);
 
-  const handleDocReorder = useCallback((reordered: Document[]) => {
-    setDocuments(reordered);
-  }, []);
+  const handleDocReorder = useCallback((reordered: Document[]) => { setDocuments(reordered); }, []);
 
-  // Split tasks: active (urgent/later) vs done
   const activeTasks = useMemo(() => {
     let result = tasks.filter(t => t.priority !== 'done');
-
     if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(t =>
-        t.title.toLowerCase().includes(query) ||
-        t.description.toLowerCase().includes(query) ||
-        t.tags?.some(tag => tag.toLowerCase().includes(query))
-      );
+      const q = searchQuery.toLowerCase();
+      result = result.filter(t => t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q) || t.tags?.some(tag => tag.toLowerCase().includes(q)));
     }
-
-    if (filterPriority !== 'all' && filterPriority !== 'done') {
-      result = result.filter(t => t.priority === filterPriority);
-    }
-
+    if (filterPriority !== 'all' && filterPriority !== 'done') { result = result.filter(t => t.priority === filterPriority); }
     if (sortOrder === 'priority') {
-      const priorityOrder: Record<Priority, number> = { urgent: 0, later: 1, done: 2 };
-      result.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
-    } else if (sortOrder === 'asc') {
-      result.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    } else {
-      result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }
-
+      const o: Record<Priority, number> = { urgent: 0, later: 1, done: 2 };
+      result.sort((a, b) => o[a.priority] - o[b.priority]);
+    } else if (sortOrder === 'asc') { result.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()); }
+    else { result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); }
     return result;
   }, [tasks, searchQuery, filterPriority, sortOrder]);
 
   const doneTasks = useMemo(() => {
     let result = tasks.filter(t => t.priority === 'done');
     if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(t =>
-        t.title.toLowerCase().includes(query) ||
-        t.description.toLowerCase().includes(query) ||
-        t.tags?.some(tag => tag.toLowerCase().includes(query))
-      );
+      const q = searchQuery.toLowerCase();
+      result = result.filter(t => t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q) || t.tags?.some(tag => tag.toLowerCase().includes(q)));
     }
     return result;
   }, [tasks, searchQuery]);
 
   const urgentTasks = useMemo(() => tasks.filter(t => t.priority === 'urgent').slice(0, 10), [tasks]);
 
-  const handleTaskClick = (task: Task) => {
-    setSelectedTask(task);
-    setIsTaskModalOpen(true);
-  };
+  const handleTaskClick = (task: Task) => { setSelectedTask(task); setIsTaskModalOpen(true); };
 
   const handlePriorityChange = async (taskId: string, priority: Priority) => {
     const { error } = await supabase.from('tasks').update({ priority }).eq('id', taskId);
-    if (error) {
-      toast.error('Lỗi cập nhật');
-    } else {
-      setTasks(prev => prev.map(task => task.id === taskId ? { ...task, priority } : task));
-      if (selectedTask?.id === taskId) {
-        setSelectedTask(prev => prev ? { ...prev, priority } : null);
-      }
+    if (error) { toast.error('Lỗi cập nhật'); } else {
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, priority } : t));
+      if (selectedTask?.id === taskId) { setSelectedTask(prev => prev ? { ...prev, priority } : null); }
     }
   };
 
-  const handleCloseTaskModal = () => {
-    setIsTaskModalOpen(false);
-    setTimeout(() => setSelectedTask(null), 200);
-  };
+  const handleCloseTaskModal = () => { setIsTaskModalOpen(false); setTimeout(() => setSelectedTask(null), 200); };
+  const handleReorder = useCallback((reorderedTasks: Task[]) => { setTasks(reorderedTasks); }, []);
 
-  const handleReorder = useCallback((reorderedTasks: Task[]) => {
-    setTasks(reorderedTasks);
-  }, []);
+  const handleEditTask = (task: Task) => { setEditingTask(task); setIsEditModalOpen(true); };
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar 
-        currentUser={currentUser} 
-        onLogout={() => {}}
-        onProfileClick={() => {}}
-        activePath="/"
-      />
-
+      <Sidebar currentUser={currentUser} onLogout={() => {}} onProfileClick={() => {}} activePath="/" />
       <main className="flex-1 overflow-auto">
         <div className="p-6 lg:p-8 space-y-6">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-              <p className="text-muted-foreground">
-                Quản lý và theo dõi công việc của bạn
-              </p>
+              <p className="text-muted-foreground">Quản lý và theo dõi công việc của bạn</p>
             </div>
             <div className="flex items-center gap-3">
               <UserRoleBadge user={currentUser} />
               {isAdmin && (
                 <Button className="gap-2" onClick={() => setIsCreateModalOpen(true)}>
-                  <Plus className="w-4 h-4" />
-                  Thêm công việc
+                  <Plus className="w-4 h-4" /> Thêm công việc
                 </Button>
               )}
             </div>
           </div>
 
-          {/* Online Members */}
           <OnlineMembers />
-
           <ProgressHeader tasks={tasks} />
 
           <Tabs defaultValue="active" className="w-full">
@@ -224,122 +169,47 @@ const Index = () => {
             </TabsList>
 
             <TabsContent value="active" className="space-y-6">
-              {urgentTasks.length > 0 && (
-                <UrgentTasksList tasks={urgentTasks} onTaskClick={handleTaskClick} />
+              {urgentTasks.length > 0 && <UrgentTasksList tasks={urgentTasks} onTaskClick={handleTaskClick} />}
+              <SearchBar searchQuery={searchQuery} onSearchChange={setSearchQuery} filterPriority={filterPriority} onFilterChange={setFilterPriority} sortOrder={sortOrder} onSortChange={setSortOrder} />
+              {loading ? <div className="text-center py-12 text-muted-foreground">Đang tải...</div> : (
+                <DraggableTaskGrid tasks={activeTasks} onTaskClick={handleTaskClick} onPriorityChange={handlePriorityChange} onReorder={handleReorder} isAdmin={isAdmin} />
               )}
-
-              <SearchBar
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                filterPriority={filterPriority}
-                onFilterChange={setFilterPriority}
-                sortOrder={sortOrder}
-                onSortChange={setSortOrder}
-              />
-
-              {loading ? (
-                <div className="text-center py-12 text-muted-foreground">Đang tải...</div>
-              ) : (
-                <DraggableTaskGrid
-                  tasks={activeTasks}
-                  onTaskClick={handleTaskClick}
-                  onPriorityChange={handlePriorityChange}
-                  onReorder={handleReorder}
-                  isAdmin={isAdmin}
-                />
-              )}
-
               {!loading && activeTasks.length === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-muted-foreground">
-                    {searchQuery || filterPriority !== 'all'
-                      ? 'Không tìm thấy công việc nào phù hợp'
-                      : 'Chưa có công việc nào'}
-                  </p>
-                </div>
+                <div className="text-center py-12"><p className="text-muted-foreground">{searchQuery || filterPriority !== 'all' ? 'Không tìm thấy công việc nào phù hợp' : 'Chưa có công việc nào'}</p></div>
               )}
             </TabsContent>
 
             <TabsContent value="done" className="space-y-6">
-              <SearchBar
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                filterPriority={filterPriority}
-                onFilterChange={setFilterPriority}
-                sortOrder={sortOrder}
-                onSortChange={setSortOrder}
-              />
-
-              {loading ? (
-                <div className="text-center py-12 text-muted-foreground">Đang tải...</div>
-              ) : (
-                <DraggableTaskGrid
-                  tasks={doneTasks}
-                  onTaskClick={handleTaskClick}
-                  onPriorityChange={handlePriorityChange}
-                  onReorder={handleReorder}
-                  isAdmin={isAdmin}
-                />
+              <SearchBar searchQuery={searchQuery} onSearchChange={setSearchQuery} filterPriority={filterPriority} onFilterChange={setFilterPriority} sortOrder={sortOrder} onSortChange={setSortOrder} />
+              {loading ? <div className="text-center py-12 text-muted-foreground">Đang tải...</div> : (
+                <DraggableTaskGrid tasks={doneTasks} onTaskClick={handleTaskClick} onPriorityChange={handlePriorityChange} onReorder={handleReorder} isAdmin={isAdmin} />
               )}
-
-              {!loading && doneTasks.length === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-muted-foreground">Chưa có công việc hoàn thành</p>
-                </div>
-              )}
+              {!loading && doneTasks.length === 0 && <div className="text-center py-12"><p className="text-muted-foreground">Chưa có công việc hoàn thành</p></div>}
             </TabsContent>
 
             <TabsContent value="documents" className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="search-input flex-1 max-w-md">
                   <Search className="w-5 h-5 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Tìm kiếm tài liệu..."
-                    value={docSearchQuery}
-                    onChange={e => setDocSearchQuery(e.target.value)}
-                    className="flex-1 bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
-                  />
+                  <input type="text" placeholder="Tìm kiếm tài liệu..." value={docSearchQuery} onChange={e => setDocSearchQuery(e.target.value)} className="flex-1 bg-transparent outline-none text-foreground placeholder:text-muted-foreground" />
                 </div>
                 <Button className="gap-2" onClick={() => setIsUploadOpen(true)}>
-                  <Upload className="w-4 h-4" />
-                  Đăng tài liệu
+                  <Upload className="w-4 h-4" /> Đăng tài liệu
                 </Button>
               </div>
-
-              {docsLoading ? (
-                <div className="text-center py-12 text-muted-foreground">Đang tải...</div>
-              ) : (
-                <DocumentList
-                  documents={filteredDocuments}
-                  onReorder={handleDocReorder}
-                  onPriorityChange={handleDocPriorityChange}
-                  isAdmin={isAdmin}
-                />
+              {docsLoading ? <div className="text-center py-12 text-muted-foreground">Đang tải...</div> : (
+                <DocumentList documents={filteredDocuments} onReorder={handleDocReorder} onPriorityChange={handleDocPriorityChange} onPreview={doc => setPreviewDoc(doc)} isAdmin={isAdmin} />
               )}
             </TabsContent>
           </Tabs>
         </div>
       </main>
 
-      <TaskModal
-        task={selectedTask}
-        isOpen={isTaskModalOpen}
-        onClose={handleCloseTaskModal}
-        onPriorityChange={handlePriorityChange}
-        isAdmin={isAdmin}
-      />
-
-      <CreateTaskModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-      />
-
-      <UploadDocumentModal
-        isOpen={isUploadOpen}
-        onClose={() => setIsUploadOpen(false)}
-        onUploaded={fetchDocuments}
-      />
+      <TaskModal task={selectedTask} isOpen={isTaskModalOpen} onClose={handleCloseTaskModal} onPriorityChange={handlePriorityChange} onEdit={handleEditTask} isAdmin={isAdmin} />
+      <CreateTaskModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} />
+      <EditTaskModal task={editingTask} isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setEditingTask(null); }} onUpdated={fetchTasks} />
+      <UploadDocumentModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUploaded={fetchDocuments} />
+      <DocumentPreviewModal document={previewDoc} isOpen={!!previewDoc} onClose={() => setPreviewDoc(null)} />
     </div>
   );
 };
