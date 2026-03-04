@@ -8,4 +8,5 @@ export interface Document {
   uploadedAt: string;
   priority: Priority;
   fileUrl?: string;
+  note: string;
 }

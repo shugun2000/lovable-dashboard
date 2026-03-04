@@ -16,6 +16,7 @@ import UrgentTasksList from '@/components/dashboard/UrgentTasksList';
 import DocumentList from '@/components/documents/DocumentList';
 import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
 import DocumentPreviewModal from '@/components/documents/DocumentPreviewModal';
+import EditDocumentModal from '@/components/documents/EditDocumentModal';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Plus, Search, Upload } from 'lucide-react';
@@ -39,6 +40,7 @@ const Index = () => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
+  const [editingDoc, setEditingDoc] = useState<Document | null>(null);
 
   const isAdmin = currentUser.role === 'admin';
 
@@ -74,7 +76,7 @@ const Index = () => {
         (data || []).map((d: any) => ({
           id: d.id, fileName: d.file_name, fileType: d.file_type as 'word' | 'pdf',
           uploadedBy: d.uploaded_by, uploadedAt: d.uploaded_at,
-          priority: d.priority as Priority, fileUrl: d.file_url,
+          priority: d.priority as Priority, fileUrl: d.file_url, note: d.note || '',
         }))
       );
     }
@@ -198,7 +200,7 @@ const Index = () => {
                 </Button>
               </div>
               {docsLoading ? <div className="text-center py-12 text-muted-foreground">Đang tải...</div> : (
-                <DocumentList documents={filteredDocuments} onReorder={handleDocReorder} onPriorityChange={handleDocPriorityChange} onPreview={doc => setPreviewDoc(doc)} isAdmin={isAdmin} />
+                <DocumentList documents={filteredDocuments} onReorder={handleDocReorder} onPriorityChange={handleDocPriorityChange} onPreview={doc => setPreviewDoc(doc)} onEdit={doc => setEditingDoc(doc)} isAdmin={isAdmin} />
               )}
             </TabsContent>
           </Tabs>
@@ -209,6 +211,7 @@ const Index = () => {
       <CreateTaskModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} />
       <EditTaskModal task={editingTask} isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setEditingTask(null); }} onUpdated={fetchTasks} />
       <UploadDocumentModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUploaded={fetchDocuments} />
+      <EditDocumentModal document={editingDoc} isOpen={!!editingDoc} onClose={() => setEditingDoc(null)} onUpdated={fetchDocuments} />
       <DocumentPreviewModal document={previewDoc} isOpen={!!previewDoc} onClose={() => setPreviewDoc(null)} />
     </div>
   );
