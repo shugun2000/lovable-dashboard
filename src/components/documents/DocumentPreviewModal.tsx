@@ -42,28 +42,11 @@ const DocumentPreviewModal = ({ document: doc, isOpen, onClose }: DocumentPrevie
               title={doc.fileName}
             />
           ) : (
-            <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
-              <p className="text-muted-foreground">
-                Không thể xem trước file Word trên trình duyệt.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Bạn có thể tải xuống để xem hoặc mở bằng Google Docs.
-              </p>
-              <div className="flex gap-3">
-                <Button onClick={handleDownload} className="gap-2">
-                  <Download className="w-4 h-4" /> Tải xuống
-                </Button>
-                <Button variant="outline" className="gap-2" asChild>
-                  <a
-                    href={`https://docs.google.com/gview?url=${encodeURIComponent(doc.fileUrl!)}&embedded=true`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <ExternalLink className="w-4 h-4" /> Mở bằng Google Docs
-                  </a>
-                </Button>
-              </div>
-            </div>
+            <iframe
+              src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(doc.fileUrl!)}`}
+              className="w-full h-full"
+              title={doc.fileName}
+            />
           )}
         </div>
 
