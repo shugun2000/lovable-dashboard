@@ -7,6 +7,7 @@ import Sidebar from '@/components/dashboard/Sidebar';
 import DocumentList from '@/components/documents/DocumentList';
 import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
 import DocumentPreviewModal from '@/components/documents/DocumentPreviewModal';
+import EditDocumentModal from '@/components/documents/EditDocumentModal';
 import { Button } from '@/components/ui/button';
 import { Upload, Search } from 'lucide-react';
 import { toast } from 'sonner';
@@ -17,6 +18,7 @@ const Tasks = () => {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
+  const [editingDoc, setEditingDoc] = useState<Document | null>(null);
   const currentUser = mockUsers[0];
   const isAdmin = currentUser.role === 'admin';
 
@@ -29,7 +31,7 @@ const Tasks = () => {
       setDocuments((data || []).map((d: any) => ({
         id: d.id, fileName: d.file_name, fileType: d.file_type as 'word' | 'pdf',
         uploadedBy: d.uploaded_by, uploadedAt: d.uploaded_at,
-        priority: d.priority as Priority, fileUrl: d.file_url,
+        priority: d.priority as Priority, fileUrl: d.file_url, note: d.note || '',
       })));
     }
     setLoading(false);
@@ -72,11 +74,12 @@ const Tasks = () => {
             </div>
           </div>
           {loading ? <div className="text-center py-12 text-muted-foreground">Đang tải...</div> : (
-            <DocumentList documents={filteredDocuments} onReorder={handleReorder} onPriorityChange={handlePriorityChange} onPreview={doc => setPreviewDoc(doc)} isAdmin={isAdmin} />
+            <DocumentList documents={filteredDocuments} onReorder={handleReorder} onPriorityChange={handlePriorityChange} onPreview={doc => setPreviewDoc(doc)} onEdit={doc => setEditingDoc(doc)} isAdmin={isAdmin} />
           )}
         </div>
       </main>
       <UploadDocumentModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUploaded={fetchDocuments} />
+      <EditDocumentModal document={editingDoc} isOpen={!!editingDoc} onClose={() => setEditingDoc(null)} onUpdated={fetchDocuments} />
       <DocumentPreviewModal document={previewDoc} isOpen={!!previewDoc} onClose={() => setPreviewDoc(null)} />
     </div>
   );

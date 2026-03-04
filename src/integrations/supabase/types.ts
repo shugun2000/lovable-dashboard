@@ -21,6 +21,7 @@ export type Database = {
           file_type: string
           file_url: string | null
           id: string
+          note: string
           priority: string
           uploaded_at: string
           uploaded_by: string
@@ -31,6 +32,7 @@ export type Database = {
           file_type?: string
           file_url?: string | null
           id?: string
+          note?: string
           priority?: string
           uploaded_at?: string
           uploaded_by: string
@@ -41,6 +43,7 @@ export type Database = {
           file_type?: string
           file_url?: string | null
           id?: string
+          note?: string
           priority?: string
           uploaded_at?: string
           uploaded_by?: string

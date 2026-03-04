@@ -4,14 +4,10 @@ import { Priority, PRIORITY_LABELS } from '@/types/task';
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { LayoutGroup, motion } from 'framer-motion';
-import { GripVertical, FileText, FileIcon, User, Clock, Download, Eye } from 'lucide-react';
+import { GripVertical, FileText, FileIcon, User, Clock, Download, Eye, Pencil } from 'lucide-react';
 import PriorityBadge from '@/components/dashboard/PriorityBadge';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 
 interface DocumentListProps {
@@ -19,22 +15,19 @@ interface DocumentListProps {
   onReorder: (docs: Document[]) => void;
   onPriorityChange: (docId: string, priority: Priority) => void;
   onPreview?: (doc: Document) => void;
+  onEdit?: (doc: Document) => void;
   isAdmin?: boolean;
 }
 
 type DragState = 'idle' | 'dragging' | 'over';
 
 const DraggableDocumentRow = ({
-  doc,
-  index,
-  onPriorityChange,
-  onPreview,
-  isAdmin,
+  doc, index, onPriorityChange, onPreview, onEdit, isAdmin,
 }: {
-  doc: Document;
-  index: number;
+  doc: Document; index: number;
   onPriorityChange: (priority: Priority) => void;
   onPreview?: () => void;
+  onEdit?: () => void;
   isAdmin?: boolean;
 }) => {
   const ref = useRef<HTMLDivElement>(null);
@@ -45,37 +38,16 @@ const DraggableDocumentRow = ({
     const el = ref.current;
     const handle = handleRef.current;
     if (!el || !handle) return;
-
     const cleanups = [
-      draggable({
-        element: el,
-        dragHandle: handle,
-        getInitialData: () => ({ index, id: doc.id }),
-        onDragStart: () => setDragState('dragging'),
-        onDrop: () => setDragState('idle'),
-      }),
-      dropTargetForElements({
-        element: el,
-        getData: () => ({ index, id: doc.id }),
-        onDragEnter: () => setDragState('over'),
-        onDragLeave: () => setDragState('idle'),
-        onDrop: () => setDragState('idle'),
-      }),
+      draggable({ element: el, dragHandle: handle, getInitialData: () => ({ index, id: doc.id }), onDragStart: () => setDragState('dragging'), onDrop: () => setDragState('idle') }),
+      dropTargetForElements({ element: el, getData: () => ({ index, id: doc.id }), onDragEnter: () => setDragState('over'), onDragLeave: () => setDragState('idle'), onDrop: () => setDragState('idle') }),
     ];
-
     return () => cleanups.forEach(fn => fn());
   }, [index, doc.id]);
 
   const formatDateTime = (dateStr: string) => {
     const d = new Date(dateStr);
-    return d.toLocaleString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
+    return d.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
   };
 
   const fileIcon = doc.fileType === 'pdf' ? (
@@ -91,106 +63,89 @@ const DraggableDocumentRow = ({
   const handleDownload = () => {
     if (doc.fileUrl) {
       const a = document.createElement('a');
-      a.href = doc.fileUrl;
-      a.download = doc.fileName;
-      a.target = '_blank';
-      a.click();
+      a.href = doc.fileUrl; a.download = doc.fileName; a.target = '_blank'; a.click();
     }
   };
 
   return (
-    <div
-      ref={ref}
-      className={`flex items-center gap-4 px-4 py-3 bg-card border rounded-lg transition-all ${
-        dragState === 'dragging'
-          ? 'opacity-50 scale-[0.98]'
-          : dragState === 'over'
-          ? 'border-primary bg-primary/5 shadow-md'
-          : 'border-border hover:border-muted-foreground/30 hover:shadow-sm'
-      }`}
-    >
-      <div
-        ref={handleRef}
-        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
-      >
+    <div ref={ref} className={`flex items-center gap-4 px-4 py-3 bg-card border rounded-lg transition-all ${
+      dragState === 'dragging' ? 'opacity-50 scale-[0.98]' : dragState === 'over' ? 'border-primary bg-primary/5 shadow-md' : 'border-border hover:border-muted-foreground/30 hover:shadow-sm'
+    }`}>
+      <div ref={handleRef} className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors">
         <GripVertical className="w-5 h-5" />
       </div>
 
       {fileIcon}
 
-      <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4 items-center">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="font-medium text-foreground truncate">{doc.fileName}</span>
+      <div className="flex-1 min-w-0 space-y-1">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4 items-center">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="font-medium text-foreground truncate">{doc.fileName}</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <User className="w-4 h-4 shrink-0" />
+            <span className="truncate">{doc.uploadedBy}</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Clock className="w-4 h-4 shrink-0" />
+            <span className="truncate">{formatDateTime(doc.uploadedAt)}</span>
+          </div>
+          <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+            <Select value={doc.priority} onValueChange={(v) => onPriorityChange(v as Priority)}>
+              <SelectTrigger className="w-[120px] h-8">
+                <PriorityBadge priority={doc.priority} />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <User className="w-4 h-4 shrink-0" />
-          <span className="truncate">{doc.uploadedBy}</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Clock className="w-4 h-4 shrink-0" />
-          <span className="truncate">{formatDateTime(doc.uploadedAt)}</span>
-        </div>
-        <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-          <Select
-            value={doc.priority}
-            onValueChange={(v) => onPriorityChange(v as Priority)}
-          >
-            <SelectTrigger className="w-[120px] h-8">
-              <PriorityBadge priority={doc.priority} />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
-                <SelectItem key={value} value={value}>{label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {doc.note && (
+          <p className="text-xs text-muted-foreground truncate" title={doc.note}>
+            📝 {doc.note}
+          </p>
+        )}
       </div>
 
-      {doc.fileUrl && (
-        <div className="flex items-center gap-1 shrink-0">
-          {onPreview && (
-            <button
-              onClick={onPreview}
-              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-              title="Xem trước"
-            >
-              <Eye className="w-5 h-5" />
-            </button>
-          )}
-          <button
-            onClick={handleDownload}
-            className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-            title="Tải xuống"
-          >
+      <div className="flex items-center gap-1 shrink-0">
+        {onEdit && (
+          <button onClick={onEdit} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Chỉnh sửa">
+            <Pencil className="w-4 h-4" />
+          </button>
+        )}
+        {doc.fileUrl && onPreview && (
+          <button onClick={onPreview} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Xem trước">
+            <Eye className="w-5 h-5" />
+          </button>
+        )}
+        {doc.fileUrl && (
+          <button onClick={handleDownload} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Tải xuống">
             <Download className="w-5 h-5" />
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
 
-const DocumentList = ({ documents, onReorder, onPriorityChange, onPreview, isAdmin }: DocumentListProps) => {
-  const handleReorder = useCallback(
-    (sourceIndex: number, destIndex: number) => {
-      if (sourceIndex === destIndex) return;
-      const updated = [...documents];
-      const [moved] = updated.splice(sourceIndex, 1);
-      updated.splice(destIndex, 0, moved);
-      onReorder(updated);
-    },
-    [documents, onReorder]
-  );
+const DocumentList = ({ documents, onReorder, onPriorityChange, onPreview, onEdit, isAdmin }: DocumentListProps) => {
+  const handleReorder = useCallback((sourceIndex: number, destIndex: number) => {
+    if (sourceIndex === destIndex) return;
+    const updated = [...documents];
+    const [moved] = updated.splice(sourceIndex, 1);
+    updated.splice(destIndex, 0, moved);
+    onReorder(updated);
+  }, [documents, onReorder]);
 
   useEffect(() => {
     return monitorForElements({
       onDrop({ source, location }) {
         const dest = location.current.dropTargets[0];
         if (!dest) return;
-        const sourceIndex = source.data.index as number;
-        const destIndex = dest.data.index as number;
-        handleReorder(sourceIndex, destIndex);
+        handleReorder(source.data.index as number, dest.data.index as number);
       },
     });
   }, [handleReorder]);
@@ -217,20 +172,16 @@ const DocumentList = ({ documents, onReorder, onPriorityChange, onPreview, isAdm
             <span>Thời gian</span>
             <span>Trạng thái</span>
           </div>
-          <div className="w-9" />
+          <div className="w-24" />
         </div>
 
         {documents.map((doc, index) => (
-          <motion.div
-            key={doc.id}
-            layout
-            transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-          >
+          <motion.div key={doc.id} layout transition={{ type: 'spring', stiffness: 350, damping: 30 }}>
             <DraggableDocumentRow
-              doc={doc}
-              index={index}
+              doc={doc} index={index}
               onPriorityChange={(p) => onPriorityChange(doc.id, p)}
               onPreview={onPreview ? () => onPreview(doc) : undefined}
+              onEdit={onEdit ? () => onEdit(doc) : undefined}
               isAdmin={isAdmin}
             />
           </motion.div>
