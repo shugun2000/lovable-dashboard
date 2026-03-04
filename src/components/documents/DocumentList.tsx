@@ -4,7 +4,7 @@ import { Priority, PRIORITY_LABELS } from '@/types/task';
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import { LayoutGroup, motion } from 'framer-motion';
-import { GripVertical, FileText, FileIcon, User, Clock, Download } from 'lucide-react';
+import { GripVertical, FileText, FileIcon, User, Clock, Download, Eye } from 'lucide-react';
 import PriorityBadge from '@/components/dashboard/PriorityBadge';
 import {
   Select,
@@ -18,6 +18,7 @@ interface DocumentListProps {
   documents: Document[];
   onReorder: (docs: Document[]) => void;
   onPriorityChange: (docId: string, priority: Priority) => void;
+  onPreview?: (doc: Document) => void;
   isAdmin?: boolean;
 }
 
@@ -27,11 +28,13 @@ const DraggableDocumentRow = ({
   doc,
   index,
   onPriorityChange,
+  onPreview,
   isAdmin,
 }: {
   doc: Document;
   index: number;
   onPriorityChange: (priority: Priority) => void;
+  onPreview?: () => void;
   isAdmin?: boolean;
 }) => {
   const ref = useRef<HTMLDivElement>(null);
@@ -145,19 +148,30 @@ const DraggableDocumentRow = ({
       </div>
 
       {doc.fileUrl && (
-        <button
-          onClick={handleDownload}
-          className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
-          title="Tải xuống"
-        >
-          <Download className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          {onPreview && (
+            <button
+              onClick={onPreview}
+              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              title="Xem trước"
+            >
+              <Eye className="w-5 h-5" />
+            </button>
+          )}
+          <button
+            onClick={handleDownload}
+            className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            title="Tải xuống"
+          >
+            <Download className="w-5 h-5" />
+          </button>
+        </div>
       )}
     </div>
   );
 };
 
-const DocumentList = ({ documents, onReorder, onPriorityChange, isAdmin }: DocumentListProps) => {
+const DocumentList = ({ documents, onReorder, onPriorityChange, onPreview, isAdmin }: DocumentListProps) => {
   const handleReorder = useCallback(
     (sourceIndex: number, destIndex: number) => {
       if (sourceIndex === destIndex) return;
@@ -216,6 +230,7 @@ const DocumentList = ({ documents, onReorder, onPriorityChange, isAdmin }: Docum
               doc={doc}
               index={index}
               onPriorityChange={(p) => onPriorityChange(doc.id, p)}
+              onPreview={onPreview ? () => onPreview(doc) : undefined}
               isAdmin={isAdmin}
             />
           </motion.div>
